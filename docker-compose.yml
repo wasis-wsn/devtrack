@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: devtrack-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: devtrack
+      POSTGRES_USER: devtrack
+      POSTGRES_PASSWORD: devtrack123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - devtrack-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devtrack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Laravel Backend
+  backend:
+    build:
+      context: ./be-devtrack
+      dockerfile: Dockerfile
+    container_name: devtrack-backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: DevTrack
+      APP_ENV: production
+      APP_KEY: base64:rEHbhe0l0VwZ2nHwK4uWk9r5BwiJRDKSoKoZg1CFqLI=
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:8000
+      
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: devtrack
+      DB_USERNAME: devtrack
+      DB_PASSWORD: devtrack123
+      
+      SESSION_DRIVER: file
+      CACHE_DRIVER: file
+      QUEUE_CONNECTION: sync
+    ports:
+      - "8000:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./be-devtrack/storage:/var/www/html/storage
+      - ./be-devtrack/bootstrap/cache:/var/www/html/bootstrap/cache
+    networks:
+      - devtrack-network
+    command: >
+      sh -c "php artisan config:cache &&
+             php artisan route:cache &&
+             php artisan migrate --force &&
+             /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf"
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./fe-devtrack
+      dockerfile: Dockerfile
+    container_name: devtrack-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - devtrack-network
+
+networks:
+  devtrack-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

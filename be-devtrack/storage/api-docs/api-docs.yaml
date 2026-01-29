@@ -1,0 +1,668 @@
+openapi: 3.0.0
+info:
+  title: DevTrack API
+  version: 1.0.0
+  description: API untuk Project and Issue Tracking Tool
+  contact:
+    email: support@devtrack.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development Server
+  - url: https://api.devtrack.com
+    description: Production Server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Login with email and password to get the authentication token
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Projects
+    description: Project management endpoints
+  - name: Issues
+    description: Issue management endpoints
+  - name: Work Logs
+    description: Work log endpoints
+  - name: Reports
+    description: Report endpoints
+
+paths:
+  /api/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Create a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+                - role
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+                password_confirmation:
+                  type: string
+                  format: password
+                  example: password123
+                role:
+                  type: string
+                  enum: [manager, engineer]
+                  example: engineer
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User registered successfully
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+        '422':
+          description: Validation failed
+
+  /api/login:
+    post:
+      tags:
+        - Auth
+      summary: Login user
+      description: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: 1|abcdefg...
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+        '401':
+          description: Invalid credentials
+
+  /api/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout user
+      description: Logout the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+
+  /api/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user
+      description: Get the authenticated user information
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User data retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  role:
+                    type: string
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: Get all projects
+      description: Get list of projects. Manager sees all, engineer sees only assigned
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Project list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    description:
+                      type: string
+                    status:
+                      type: string
+                    start_date:
+                      type: string
+                      format: date
+                    end_date:
+                      type: string
+                      format: date
+                    manager_id:
+                      type: integer
+
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      description: Only manager can create project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - status
+              properties:
+                name:
+                  type: string
+                  example: Project Name
+                description:
+                  type: string
+                  example: Project description
+                status:
+                  type: string
+                  enum: [not_started, in_progress, finished]
+                  example: in_progress
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  project:
+                    type: object
+        '403':
+          description: Only managers can create projects
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Get project details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Project ID
+      responses:
+        '200':
+          description: Project details with issues
+          content:
+            application/json:
+              schema:
+                type: object
+        '404':
+          description: Project not found
+
+    put:
+      tags:
+        - Projects
+      summary: Update project
+      description: Only project manager can update
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  enum: [not_started, in_progress, finished]
+                start_date:
+                  type: string
+                  format: date
+                end_date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Project updated
+        '403':
+          description: Unauthorized
+
+    delete:
+      tags:
+        - Projects
+      summary: Delete project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Project deleted
+        '403':
+          description: Unauthorized
+
+  /api/projects/{projectId}/issues:
+    get:
+      tags:
+        - Issues
+      summary: Get issues for project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Issues list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    priority:
+                      type: integer
+                    assigned_to:
+                      type: integer
+
+    post:
+      tags:
+        - Issues
+      summary: Create new issue
+      description: Only project manager can create issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - type
+                - priority
+              properties:
+                title:
+                  type: string
+                  example: Bug in login
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [bug, improvement]
+                  example: bug
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 3
+                assigned_to:
+                  type: integer
+                  description: User ID to assign
+      responses:
+        '201':
+          description: Issue created
+        '403':
+          description: Only managers can create issues
+
+  /api/issues/{id}:
+    get:
+      tags:
+        - Issues
+      summary: Get issue details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Issue details
+
+    put:
+      tags:
+        - Issues
+      summary: Update issue
+      description: Manager can update all fields. Assigned engineer can update status and add work logs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [bug, improvement]
+                priority:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                status:
+                  type: string
+                  enum: [open, in_progress, done]
+                assigned_to:
+                  type: integer
+      responses:
+        '200':
+          description: Issue updated
+        '403':
+          description: Unauthorized
+
+    delete:
+      tags:
+        - Issues
+      summary: Delete issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Issue deleted
+
+  /api/issues/{issueId}/work-logs:
+    get:
+      tags:
+        - Work Logs
+      summary: Get work logs for issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: issueId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Work logs list
+
+    post:
+      tags:
+        - Work Logs
+      summary: Add work log
+      description: Assigned engineer can log work on the issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: issueId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hours
+                - logged_at
+              properties:
+                hours:
+                  type: number
+                  format: decimal
+                  example: 4.5
+                description:
+                  type: string
+                logged_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Work log created
+        '403':
+          description: Only assigned engineer can log work
+
+  /api/work-logs/{id}:
+    get:
+      tags:
+        - Work Logs
+      summary: Get work log details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Work log details
+
+    put:
+      tags:
+        - Work Logs
+      summary: Update work log
+      description: User who logged work can update it
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hours:
+                  type: number
+                description:
+                  type: string
+                logged_at:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Work log updated
+
+    delete:
+      tags:
+        - Work Logs
+      summary: Delete work log
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Work log deleted
+
+  /api/projects/{id}/report:
+    get:
+      tags:
+        - Reports
+      summary: Get project report
+      description: Get report with all issues and work logs for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Project report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  project:
+                    type: object
+                  issues:
+                    type: array
+                    items:
+                      type: object
+                  total_hours:
+                    type: number
