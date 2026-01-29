@@ -16,6 +16,19 @@ DevTrack adalah aplikasi pelacakan proyek dan issue untuk tim engineering, denga
 
 ---
 
+## Screenshots
+
+### Dashboard Manager
+![Dashboard Manager](screenshots/manager.png)
+
+### Dashboard Engineer
+![Dashboard Engineer](screenshots/engineer.png)
+
+### API Documentation
+![API Documentation](screenshots/api-documentation.png)
+
+---
+
 ## Quick Start (Docker)
 
 1. Pastikan Docker dan Docker Compose terinstall.
