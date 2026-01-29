@@ -34,7 +34,7 @@ services:
       APP_ENV: production
       APP_KEY: base64:rEHbhe0l0VwZ2nHwK4uWk9r5BwiJRDKSoKoZg1CFqLI=
       APP_DEBUG: "false"
-      APP_URL: http://localhost:8000
+      APP_URL: http://127.0.0.1:8000
       
       DB_CONNECTION: pgsql
       DB_HOST: postgres
@@ -70,7 +70,7 @@ services:
     container_name: devtrack-frontend
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
     ports:
       - "3000:3000"
     depends_on:
